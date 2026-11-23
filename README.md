@@ -1,38 +1,61 @@
 # Mori Launcher
 
-A forest-atmospheric Android home launcher inspired by the supplied reference screens. The forest look is the primary design; a graphite monochrome theme is an alternate.
+A forest-atmospheric Android home launcher with a quiet glass-and-moss visual system. The goal is a genuinely usable launcher, not a static concept screen.
 
-## Project status
+## Current build
 
-**Early foundation — Android Compose scaffold.** The repository is new. The first milestone establishes the app shell, a home-screen concept, a lock-screen-style preview, and an expandable Dynamic Island-inspired capsule. Device integration (real widgets, app drawer, media sessions, notification access, wallpaper selection, and launcher role) will be added incrementally and tested on real Android hardware.
+The current Compose build includes:
+- Forest-gradient home surface with live date and clock
+- Expandable capsule interaction
+- Searchable installed-app library with real app icons and launch actions
+- Settings and lock-screen concept pages
+- Four-slot dock concept and compact home widgets
 
-## Important Android security boundary
+Some home tiles, dock shortcuts, media controls, and settings are still visual prototypes. They do not yet control Android system services or persist preferences.
 
-Mori can become the default home app. A regular third-party app cannot replace Android's secure Keyguard or bypass device authentication. The in-app lock-screen experience is a visual companion/preview; actual unlock security remains owned by Android.
+## Design and engineering references
+
+Mori is an independent implementation. Its feature direction is informed by established open-source launcher projects:
+- [Lawnchair](https://github.com/LawnchairLauncher/lawnchair) — launcher fundamentals, Pixel-style interaction patterns and customization.
+- [ARK Launcher](https://github.com/jrs8205/ARK-launcher) — Compose-based app search, settings discoverability and widget-host direction.
+- [YagniLauncher](https://github.com/T31n/YagniLauncher) — performance-first scope and avoiding unnecessary background work.
+
+No source files from those projects are vendored in this repository. Their repositories and licences remain separate; Mori's current code is authored for this project.
+
+## Android boundary
+
+Mori can be selected as the default home app. A normal third-party launcher cannot replace Android's secure Keyguard or bypass device authentication. The lock screen page is a concept preview only; Android remains responsible for device unlock security.
 
 ## Tech
 
 - Kotlin
 - Jetpack Compose + Material 3
-- Minimum Android 8.0 (API 26), targeting API 35
+- Minimum Android 8.0 (API 26)
+- Java 17 toolchain
 
 ## Build
 
-Open the project in Android Studio (Hedgehog or newer), let Gradle sync, then run the `app` configuration on an Android device or emulator.
+Open in Android Studio and run the `app` configuration, or run:
+
+```bash
+gradle :app:assembleDebug
+```
+
+GitHub Actions builds a debug APK on pushes to `main` and uploads it as the `MoriLauncher-debug-apk` artifact.
 
 ## Roadmap
 
-- [x] Create dedicated repository
-- [x] Initial Compose app shell
-- [x] Forest-first home and lock-screen visual foundations
-- [x] Expandable Dynamic Island-inspired capsule prototype
-- [ ] Set up default-launcher role and app drawer
-- [ ] Wallpaper picker and persistent layout preferences
-- [ ] Real media-session integration
-- [ ] Notification listener and notification cards (opt-in)
-- [ ] Battery/device widgets and widget-host support
-- [ ] Lock-screen companion polish and Android Keyguard-safe integration
-- [ ] Accessibility, performance, and device testing
+- [x] Compose launcher shell
+- [x] Forest-first visual system
+- [x] Installed-app discovery, search and launch
+- [x] Settings and lock-preview navigation
+- [ ] Persistent home layout and preferences
+- [ ] Real media-session controls
+- [ ] Wallpaper picker
+- [ ] Android AppWidgetHost support
+- [ ] Notification listener integration (opt-in)
+- [ ] Gesture and folder interactions
+- [ ] Accessibility, performance and real-device testing
 
 ## License
 
