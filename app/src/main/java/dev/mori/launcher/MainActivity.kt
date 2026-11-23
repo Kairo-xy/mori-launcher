@@ -256,7 +256,7 @@ private fun MoriHome(
                     }
                 }
                 AnimatedVisibility(islandOpen, enter = fadeIn(), exit = fadeOut()) {
-                    Text(if (playing) "Ambient mode is on" else "Tap the note to preview controls",
+                    Text("Tap the note to open your music app",
                         color = Subtle, fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp))
                 }
             }
