@@ -10,12 +10,13 @@ The current Compose build includes:
 - Searchable installed-app library with real app icons and launch actions
 - App drawer filters for all, downloaded, and system apps
 - Search by app label or package name; long-press opens Android App Info
+- Pin up to eight installed apps from the drawer to a persistent home-screen shortcuts row
 - Functional Phone, Browser, Music, and Camera dock shortcuts
 - Wallpaper picker and Android Settings entry points
 - Device-local persistent preferences for frosted surfaces and dock labels
 - Lock-screen concept preview (not a replacement for Android Keyguard)
 
-The workspace is still early: dock order and home layout are not yet editable or persisted, and hosted widgets cannot yet be resized or freely placed. Mori now has a real Android widget picker, provider configuration hand-off, locally persisted widget IDs, and live AppWidgetHostView rendering.
+The workspace is still early: dock order and home layout are not yet editable or persisted, and hosted widgets cannot yet be resized or freely placed. Pinned app shortcuts are stored locally and can be added or removed from the app drawer. Mori now has a real Android widget picker, provider configuration hand-off, locally persisted widget IDs, and live AppWidgetHostView rendering.
 
 ## Design and engineering references
 
@@ -54,6 +55,7 @@ GitHub Actions builds a debug APK on pushes to `main` and uploads it as the `Mor
 - [x] Installed-app discovery, search and launch
 - [x] Settings and lock-preview navigation
 - [x] Persistent frosted-surface and dock-label preferences
+- [x] Persistent pinned app shortcuts
 - [ ] Persistent home layout and dock ordering
 - [ ] Real media-session controls
 - [x] Wallpaper picker entry point
