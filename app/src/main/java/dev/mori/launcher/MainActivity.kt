@@ -1,6 +1,7 @@
 package dev.mori.launcher
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -22,6 +23,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,6 +41,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,6 +51,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -66,6 +72,8 @@ private val Glass = Color(0xAA18221E)
 private val SoftWhite = Color(0xFFE9ECE7)
 private val Muted = Color(0xFFB7C0B8)
 
+private data class LaunchableApp(val label: String, val packageName: String, val className: String)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,10 +89,14 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MoriApp() {
     var screen by remember { mutableStateOf(false) }
+    var drawer by remember { mutableStateOf(false) }
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = Night) {
-            if (screen) LockPreview(onBack = { screen = false })
-            else HomeScreen(onOpenLock = { screen = true })
+            when {
+                drawer -> AppDrawer(onBack = { drawer = false })
+                screen -> LockPreview(onBack = { screen = false })
+                else -> HomeScreen(onOpenLock = { screen = true }, onOpenDrawer = { drawer = true })
+            }
         }
     }
 }
@@ -151,7 +163,7 @@ private fun MoriBackdrop(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun HomeScreen(onOpenLock: () -> Unit) {
+private fun HomeScreen(onOpenLock: () -> Unit, onOpenDrawer: () -> Unit) {
     var islandExpanded by remember { mutableStateOf(false) }
     var playing by remember { mutableStateOf(true) }
 
@@ -191,10 +203,10 @@ private fun HomeScreen(onOpenLock: () -> Unit) {
                 AppGlyph("Photos", "❋")
             }
             Spacer(Modifier.height(14.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { islandExpanded = !islandExpanded }) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable(onClick = onOpenDrawer)) {
                 Icon(Icons.Default.Search, null, tint = Muted, modifier = Modifier.size(15.dp))
                 Spacer(Modifier.width(7.dp))
-                Text("Search", color = Muted, fontSize = 13.sp)
+                Text("All apps  ·  Search", color = Muted, fontSize = 13.sp)
             }
             Spacer(Modifier.height(8.dp))
             Text("Hold an empty space to customise  ·  Mori 0.1", color = Muted.copy(alpha = .55f), fontSize = 10.sp)
@@ -294,6 +306,87 @@ private fun AppGlyph(name: String, glyph: String) {
             Text(glyph, color = SoftWhite, fontSize = 25.sp)
         }
         Text(name, color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+
+@Composable
+private fun AppDrawer(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val packageManager = context.packageManager
+    var query by remember { mutableStateOf("") }
+    val apps = remember(context) {
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        packageManager.queryIntentActivities(intent, 0)
+            .map { info ->
+                LaunchableApp(
+                    label = info.loadLabel(packageManager).toString(),
+                    packageName = info.activityInfo.packageName,
+                    className = info.activityInfo.name
+                )
+            }
+            .distinctBy { it.packageName }
+            .sortedBy { it.label.lowercase() }
+    }
+    val filtered = apps.filter { it.label.contains(query, ignoreCase = true) }
+
+    MoriBackdrop {
+        Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 26.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.ArrowBack, "Back", tint = SoftWhite, modifier = Modifier.size(24.dp).clickable(onClick = onBack))
+                Spacer(Modifier.width(16.dp))
+                Text("Your apps", color = SoftWhite, fontSize = 25.sp, fontWeight = FontWeight.Light)
+                Spacer(Modifier.weight(1f))
+                Text(filtered.size.toString(), color = Muted, fontSize = 12.sp)
+            }
+            Spacer(Modifier.height(20.dp))
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("Search installed apps", color = Muted) },
+                leadingIcon = { Icon(Icons.Default.Search, null, tint = Muted) },
+                shape = RoundedCornerShape(20.dp)
+            )
+            Spacer(Modifier.height(18.dp))
+            if (filtered.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No matching apps", color = Muted)
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                ) {
+                    items(filtered, key = { it.packageName }) { app ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.clickable {
+                                val launch = Intent(Intent.ACTION_MAIN).apply {
+                                    addCategory(Intent.CATEGORY_LAUNCHER)
+                                    setClassName(app.packageName, app.className)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                runCatching { context.startActivity(launch) }
+                            }
+                        ) {
+                            Box(
+                                Modifier.size(58.dp).clip(RoundedCornerShape(19.dp))
+                                    .background(Color(0x665D7062)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(app.label.take(1).uppercase(), color = SoftWhite, fontSize = 25.sp, fontWeight = FontWeight.Light)
+                            }
+                            Spacer(Modifier.height(7.dp))
+                            Text(app.label, color = SoftWhite, fontSize = 10.sp, textAlign = TextAlign.Center, maxLines = 2, lineHeight = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
