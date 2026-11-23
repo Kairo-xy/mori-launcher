@@ -20,7 +20,7 @@ Mori is an independent implementation. Its feature direction is informed by esta
 - [ARK Launcher](https://github.com/jrs8205/ARK-launcher) — Compose-based app search, settings discoverability and widget-host direction.
 - [YagniLauncher](https://github.com/T31n/YagniLauncher) — performance-first scope and avoiding unnecessary background work.
 
-No source files from those projects are vendored in this repository. Their repositories and licences remain separate; Mori's current code is authored for this project.
+Mori now includes an adapted AppWidgetHost/provider-generation foundation derived from ARK Launcher. The adaptation is documented in `NOTICE-THIRD-PARTY.md`, and the upstream Apache License 2.0 text is included under `licenses/`. Other projects currently serve as architectural references; their source is not copied.
 
 ## Android boundary
 
@@ -52,11 +52,11 @@ GitHub Actions builds a debug APK on pushes to `main` and uploads it as the `Mor
 - [ ] Persistent home layout and preferences
 - [ ] Real media-session controls
 - [ ] Wallpaper picker
-- [ ] Android AppWidgetHost support
+- [x] AppWidgetHost lifecycle/provider-generation foundation (picker, binding and rendering still to come)
 - [ ] Notification listener integration (opt-in)
 - [ ] Gesture and folder interactions
 - [ ] Accessibility, performance and real-device testing
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Mori's original code is MIT. The ARK-derived widget-host adaptation is additionally subject to Apache License 2.0; see [NOTICE-THIRD-PARTY.md](NOTICE-THIRD-PARTY.md) and [licenses/Apache-2.0-ARK-Launcher.txt](licenses/Apache-2.0-ARK-Launcher.txt).
