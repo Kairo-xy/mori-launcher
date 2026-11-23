@@ -157,6 +157,7 @@ private fun MoriHome(onDrawer: () -> Unit, onSettings: () -> Unit, onLock: () ->
     var islandOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val glassEnabled = remember { MoriPreferences.glassEnabled(context) }
+    val dockLabelsEnabled = remember { MoriPreferences.labelsEnabled(context) }
     MoriBackdrop {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
             .padding(horizontal = 22.dp, vertical = 12.dp)) {
@@ -220,10 +221,10 @@ private fun MoriHome(onDrawer: () -> Unit, onSettings: () -> Unit, onLock: () ->
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp))
                 .background(Color(0x55202D25)).padding(vertical = 13.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                DockShortcut("Phone", "☎") { MoriLauncherActions.open(context, "phone") }
-                DockShortcut("Browser", "◉") { MoriLauncherActions.open(context, "browser") }
-                DockShortcut("Music", "♫") { MoriLauncherActions.open(context, "music") }
-                DockShortcut("Camera", "⌑") { MoriLauncherActions.open(context, "camera") }
+                DockShortcut("Phone", "☎", dockLabelsEnabled) { MoriLauncherActions.open(context, "phone") }
+                DockShortcut("Browser", "◉", dockLabelsEnabled) { MoriLauncherActions.open(context, "browser") }
+                DockShortcut("Music", "♫", dockLabelsEnabled) { MoriLauncherActions.open(context, "music") }
+                DockShortcut("Camera", "⌑", dockLabelsEnabled) { MoriLauncherActions.open(context, "camera") }
             }
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth().clickable { onDrawer() }
@@ -254,14 +255,16 @@ private fun MiniTile(icon: androidx.compose.ui.graphics.vector.ImageVector, titl
 }
 
 @Composable
-private fun DockShortcut(name: String, glyph: String, onClick: () -> Unit) {
+private fun DockShortcut(name: String, glyph: String, showLabel: Boolean, onClick: () -> Unit) {
     Column(Modifier.clickable { onClick() }.padding(horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.size(43.dp).clip(RoundedCornerShape(15.dp)).background(Color(0x554E6755)),
             contentAlignment = Alignment.Center) {
             Text(glyph, color = Paper, fontSize = 21.sp)
         }
-        Spacer(Modifier.height(5.dp))
-        Text(name, color = Subtle, fontSize = 9.sp)
+        if (showLabel) {
+            Spacer(Modifier.height(5.dp))
+            Text(name, color = Subtle, fontSize = 9.sp)
+        }
     }
 }
 
@@ -397,7 +400,7 @@ private fun MoriSettings(onBack: () -> Unit) {
             glass = it
             MoriPreferences.setGlassEnabled(context, it)
         }
-        SettingRow("App labels", "Show names below icons", labels) {
+        SettingRow("Dock labels", "Show names under dock icons", labels) {
             labels = it
             MoriPreferences.setLabelsEnabled(context, it)
         }
