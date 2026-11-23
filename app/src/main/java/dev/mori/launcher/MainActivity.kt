@@ -79,10 +79,23 @@ class MainActivity : ComponentActivity() {
     private val widgetIds = mutableStateListOf<Int>()
     private val pinnedPackages = mutableStateListOf<String>()
 
+    private fun persistPinned() {
+        MoriWorkspaceStore.setPinnedPackages(this, pinnedPackages.toSet())
+    }
+
     private fun togglePinned(packageName: String) {
         if (packageName in pinnedPackages) pinnedPackages.remove(packageName)
         else if (pinnedPackages.size < 8) pinnedPackages.add(packageName)
-        pinnedPackages.toSet().let { MoriWorkspaceStore.setPinnedPackages(this, it) }
+        persistPinned()
+    }
+
+    private fun movePinned(packageName: String, offset: Int) {
+        val from = pinnedPackages.indexOf(packageName)
+        val to = from + offset
+        if (from < 0 || to !in pinnedPackages.indices) return
+        val item = pinnedPackages.removeAt(from)
+        pinnedPackages.add(to, item)
+        persistPinned()
     }
     private var pendingWidgetId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
 
@@ -170,7 +183,7 @@ class MainActivity : ComponentActivity() {
         pinnedPackages.addAll(MoriWorkspaceStore.pinnedPackages(this))
         setContent {
             CompositionLocalProvider(LocalMoriWidgetHost provides moriWidgetHost) {
-                MoriRoot(widgetIds, pinnedPackages, ::togglePinned, ::launchWidgetPicker, ::removeWidget)
+                MoriRoot(widgetIds, pinnedPackages, ::togglePinned, ::movePinned, ::launchWidgetPicker, ::removeWidget)
             }
         }
     }
@@ -181,6 +194,7 @@ private fun MoriRoot(
     widgetIds: List<Int>,
     pinnedPackages: List<String>,
     onTogglePinned: (String) -> Unit,
+    onMovePinned: (String, Int) -> Unit,
     onAddWidget: () -> Unit,
     onRemoveWidget: (Int) -> Unit
 ) {
@@ -198,7 +212,9 @@ private fun MoriRoot(
                         onSettings = { page = "settings" },
                         onLock = { page = "lock" },
                         onWidgets = { page = "widgets" },
-                        pinnedPackages = pinnedPackages
+                        pinnedPackages = pinnedPackages,
+                        onMovePinned = onMovePinned,
+                        onTogglePinned = onTogglePinned
                     )
                 }
             }
@@ -237,9 +253,12 @@ private fun ClockBlock() {
 @Composable
 private fun MoriHome(
     onDrawer: () -> Unit, onSettings: () -> Unit, onLock: () -> Unit, onWidgets: () -> Unit,
-    pinnedPackages: List<String>
+    pinnedPackages: List<String>,
+    onMovePinned: (String, Int) -> Unit,
+    onTogglePinned: (String) -> Unit
 ) {
     var islandOpen by remember { mutableStateOf(false) }
+    var editingShortcuts by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val glassEnabled = remember { MoriPreferences.glassEnabled(context) }
     val dockLabelsEnabled = remember { MoriPreferences.labelsEnabled(context) }
@@ -250,8 +269,15 @@ private fun MoriHome(
                 horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("mori", color = Paper, fontSize = 20.sp, fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.5.sp)
-                Icon(Icons.Default.Settings, "Settings", tint = Subtle,
-                    modifier = Modifier.size(19.dp).clickable { onSettings() })
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    if (pinnedPackages.isNotEmpty()) {
+                        Text(if (editingShortcuts) "DONE" else "EDIT",
+                            color = Leaf, fontSize = 10.sp, letterSpacing = 1.2.sp,
+                            modifier = Modifier.clickable { editingShortcuts = !editingShortcuts })
+                    }
+                    Icon(Icons.Default.Settings, "Settings", tint = Subtle,
+                        modifier = Modifier.size(19.dp).clickable { onSettings() })
+                }
             }
             Spacer(Modifier.height(24.dp))
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -293,7 +319,7 @@ private fun MoriHome(
             }
             if (pinnedPackages.isNotEmpty()) {
                 Spacer(Modifier.height(18.dp))
-                PinnedAppsRow(pinnedPackages)
+                PinnedAppsRow(pinnedPackages, editingShortcuts, onMovePinned, onTogglePinned)
             }
             Spacer(Modifier.weight(1f))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
@@ -354,7 +380,12 @@ private fun DockShortcut(name: String, glyph: String, showLabel: Boolean, onClic
 }
 
 @Composable
-private fun PinnedAppsRow(packages: List<String>) {
+private fun PinnedAppsRow(
+    packages: List<String>,
+    editing: Boolean,
+    onMove: (String, Int) -> Unit,
+    onRemove: (String) -> Unit
+) {
     val context = LocalContext.current
     val pinned = packages.mapNotNull { pkg ->
         runCatching {
@@ -374,6 +405,16 @@ private fun PinnedAppsRow(packages: List<String>) {
                     androidx.compose.foundation.Image(bitmap.asImageBitmap(), contentDescription = label, modifier = Modifier.size(34.dp))
                     Spacer(Modifier.height(5.dp))
                     Text(label, color = Paper, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (editing) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Text("←", color = Leaf, fontSize = 14.sp,
+                                modifier = Modifier.clickable { onMove(pkg, -1) }.padding(3.dp))
+                            Text("→", color = Leaf, fontSize = 14.sp,
+                                modifier = Modifier.clickable { onMove(pkg, 1) }.padding(3.dp))
+                            Text("×", color = Color(0xFFE5A39A), fontSize = 14.sp,
+                                modifier = Modifier.clickable { onRemove(pkg) }.padding(3.dp))
+                        }
+                    }
                 }
             }
         }
