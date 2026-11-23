@@ -38,6 +38,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.CompositionLocalProvider
+import dev.mori.launcher.data.LocalMoriWidgetHost
+import dev.mori.launcher.data.MoriWidgetHost
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -62,6 +65,18 @@ private val Glass = Color(0xB91B2921)
 data class MoriAppInfo(val label: String, val packageName: String, val icon: Drawable)
 
 class MainActivity : ComponentActivity() {
+    private val moriWidgetHost by lazy { MoriWidgetHost(applicationContext) }
+
+    override fun onStart() {
+        super.onStart()
+        moriWidgetHost.startListening()
+    }
+
+    override fun onStop() {
+        moriWidgetHost.stopListening()
+        super.onStop()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
@@ -70,7 +85,11 @@ class MainActivity : ComponentActivity() {
             android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
             android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
             android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-        setContent { MoriRoot() }
+        setContent {
+            CompositionLocalProvider(LocalMoriWidgetHost provides moriWidgetHost) {
+                MoriRoot()
+            }
+        }
     }
 }
 
