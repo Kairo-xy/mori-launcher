@@ -2,6 +2,8 @@ package dev.mori.launcher
 
 import android.os.Bundle
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -10,6 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -56,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -373,19 +377,40 @@ private fun AppDrawer(onBack: () -> Unit) {
                                 runCatching { context.startActivity(launch) }
                             }
                         ) {
-                            Box(
-                                Modifier.size(58.dp).clip(RoundedCornerShape(19.dp))
-                                    .background(Color(0x665D7062)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(app.label.take(1).uppercase(), color = SoftWhite, fontSize = 25.sp, fontWeight = FontWeight.Light)
-                            }
+                            AppIcon(app = app)
                             Spacer(Modifier.height(7.dp))
                             Text(app.label, color = SoftWhite, fontSize = 10.sp, textAlign = TextAlign.Center, maxLines = 2, lineHeight = 12.sp)
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+
+@Composable
+private fun AppIcon(app: LaunchableApp) {
+    val context = LocalContext.current
+    val icon = remember(app.packageName) {
+        runCatching {
+            val drawable = context.packageManager.getApplicationIcon(app.packageName)
+            val bitmap = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+            drawable.draw(canvas)
+            bitmap.asImageBitmap()
+        }.getOrNull()
+    }
+    Box(
+        Modifier.size(58.dp).clip(RoundedCornerShape(19.dp))
+            .background(Color(0x665D7062)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (icon != null) {
+            Image(bitmap = icon, contentDescription = app.label, modifier = Modifier.fillMaxSize().padding(5.dp))
+        } else {
+            Text(app.label.take(1).uppercase(), color = SoftWhite, fontSize = 25.sp, fontWeight = FontWeight.Light)
         }
     }
 }
