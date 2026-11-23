@@ -356,13 +356,11 @@ private fun DockShortcut(name: String, glyph: String, showLabel: Boolean, onClic
 @Composable
 private fun PinnedAppsRow(packages: List<String>) {
     val context = LocalContext.current
-    val pinned = remember(packages) {
-        packages.mapNotNull { pkg ->
-            runCatching {
-                val appInfo = context.packageManager.getApplicationInfo(pkg, 0)
-                Triple(pkg, context.packageManager.getApplicationLabel(appInfo).toString(), context.packageManager.getApplicationIcon(pkg))
-            }.getOrNull()
-        }
+    val pinned = packages.mapNotNull { pkg ->
+        runCatching {
+            val appInfo = context.packageManager.getApplicationInfo(pkg, 0)
+            Triple(pkg, context.packageManager.getApplicationLabel(appInfo).toString(), context.packageManager.getApplicationIcon(pkg))
+        }.getOrNull()
     }
     Column(Modifier.fillMaxWidth()) {
         Text("YOUR SHORTCUTS", color = Subtle, fontSize = 9.sp, letterSpacing = 2.sp)
