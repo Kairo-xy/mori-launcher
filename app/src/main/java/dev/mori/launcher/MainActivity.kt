@@ -403,7 +403,9 @@ private fun PinnedAppsRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             pinned.forEach { (pkg, label, drawable) ->
                 Column(Modifier.width(68.dp).clip(RoundedCornerShape(16.dp))
-                    .clickable { context.packageManager.getLaunchIntentForPackage(pkg)?.let(context::startActivity) }
+                    .clickable(enabled = !editing) {
+                        context.packageManager.getLaunchIntentForPackage(pkg)?.let(context::startActivity)
+                    }
                     .padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     val bitmap = remember(pkg) { drawableBitmap(drawable) }
                     androidx.compose.foundation.Image(bitmap.asImageBitmap(), contentDescription = label, modifier = Modifier.size(34.dp))
