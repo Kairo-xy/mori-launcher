@@ -45,6 +45,7 @@ import dev.mori.launcher.data.LocalMoriWidgetHost
 import dev.mori.launcher.data.MoriLauncherActions
 import dev.mori.launcher.data.MoriPreferences
 import dev.mori.launcher.data.MoriWidgetHost
+import dev.mori.launcher.data.MoriWorkspaceStore
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -76,6 +77,13 @@ data class MoriAppInfo(
 class MainActivity : ComponentActivity() {
     private val moriWidgetHost by lazy { MoriWidgetHost(applicationContext) }
     private val widgetIds = mutableStateListOf<Int>()
+    private val pinnedPackages = mutableStateListOf<String>()
+
+    private fun togglePinned(packageName: String) {
+        if (packageName in pinnedPackages) pinnedPackages.remove(packageName)
+        else if (pinnedPackages.size < 8) pinnedPackages.add(packageName)
+        pinnedPackages.toSet().let { MoriWorkspaceStore.setPinnedPackages(this, it) }
+    }
     private var pendingWidgetId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
 
     private fun saveWidgetIds() {
@@ -159,9 +167,10 @@ class MainActivity : ComponentActivity() {
         val savedIds = getSharedPreferences("mori_widgets", MODE_PRIVATE)
             .getStringSet("ids", emptySet()).orEmpty()
         widgetIds.addAll(savedIds.mapNotNull { it.toIntOrNull() })
+        pinnedPackages.addAll(MoriWorkspaceStore.pinnedPackages(this))
         setContent {
             CompositionLocalProvider(LocalMoriWidgetHost provides moriWidgetHost) {
-                MoriRoot(widgetIds, ::launchWidgetPicker, ::removeWidget)
+                MoriRoot(widgetIds, pinnedPackages, ::togglePinned, ::launchWidgetPicker, ::removeWidget)
             }
         }
     }
@@ -170,6 +179,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MoriRoot(
     widgetIds: List<Int>,
+    pinnedPackages: List<String>,
+    onTogglePinned: (String) -> Unit,
     onAddWidget: () -> Unit,
     onRemoveWidget: (Int) -> Unit
 ) {
@@ -178,7 +189,7 @@ private fun MoriRoot(
         Surface(Modifier.fillMaxSize(), color = Ink) {
             AnimatedContent(targetState = page, label = "mori-page") { current ->
                 when (current) {
-                    "drawer" -> MoriDrawer(onBack = { page = "home" })
+                    "drawer" -> MoriDrawer(pinnedPackages, onTogglePinned, onBack = { page = "home" })
                     "settings" -> MoriSettings(onBack = { page = "home" })
                     "lock" -> MoriLockPreview(onBack = { page = "home" })
                     "widgets" -> MoriWidgetsScreen(widgetIds, { page = "home" }, onAddWidget, onRemoveWidget)
@@ -186,7 +197,8 @@ private fun MoriRoot(
                         onDrawer = { page = "drawer" },
                         onSettings = { page = "settings" },
                         onLock = { page = "lock" },
-                        onWidgets = { page = "widgets" }
+                        onWidgets = { page = "widgets" },
+                        pinnedPackages = pinnedPackages
                     )
                 }
             }
@@ -224,7 +236,8 @@ private fun ClockBlock() {
 
 @Composable
 private fun MoriHome(
-    onDrawer: () -> Unit, onSettings: () -> Unit, onLock: () -> Unit, onWidgets: () -> Unit
+    onDrawer: () -> Unit, onSettings: () -> Unit, onLock: () -> Unit, onWidgets: () -> Unit,
+    pinnedPackages: List<String>
 ) {
     var islandOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -277,6 +290,10 @@ private fun MoriHome(
                     Text("Tap to open your music app", color = Subtle, fontSize = 11.sp)
                 }
                 Icon(Icons.Default.ChevronRight, "Open music", tint = Paper, modifier = Modifier.size(20.dp))
+            }
+            if (pinnedPackages.isNotEmpty()) {
+                Spacer(Modifier.height(18.dp))
+                PinnedAppsRow(pinnedPackages)
             }
             Spacer(Modifier.weight(1f))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
@@ -337,7 +354,39 @@ private fun DockShortcut(name: String, glyph: String, showLabel: Boolean, onClic
 }
 
 @Composable
-private fun MoriDrawer(onBack: () -> Unit) {
+private fun PinnedAppsRow(packages: List<String>) {
+    val context = LocalContext.current
+    val pinned = remember(packages) {
+        packages.mapNotNull { pkg ->
+            runCatching {
+                val appInfo = context.packageManager.getApplicationInfo(pkg, 0)
+                Triple(pkg, context.packageManager.getApplicationLabel(appInfo).toString(), context.packageManager.getApplicationIcon(pkg))
+            }.getOrNull()
+        }
+    }
+    Column(Modifier.fillMaxWidth()) {
+        Text("YOUR SHORTCUTS", color = Subtle, fontSize = 9.sp, letterSpacing = 2.sp)
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            pinned.forEach { (pkg, label, drawable) ->
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
+                    .clickable { context.packageManager.getLaunchIntentForPackage(pkg)?.let(context::startActivity) }
+                    .padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    val bitmap = remember(pkg) { drawableBitmap(drawable) }
+                    androidx.compose.foundation.Image(bitmap.asImageBitmap(), contentDescription = label, modifier = Modifier.size(34.dp))
+                    Spacer(Modifier.height(5.dp))
+                    Text(label, color = Paper, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+}
+@Composable
+private fun MoriDrawer(
+    pinnedPackages: List<String>,
+    onTogglePinned: (String) -> Unit,
+    onBack: () -> Unit
+) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf("all") }
@@ -432,8 +481,14 @@ private fun MoriDrawer(onBack: () -> Unit) {
                         Spacer(Modifier.height(7.dp))
                         Text(app.label, color = Paper, fontSize = 10.sp, maxLines = 1,
                             overflow = TextOverflow.Ellipsis)
-                        if (app.isSystem) Text("SYSTEM", color = Leaf.copy(alpha = 0.75f),
-                            fontSize = 7.sp, maxLines = 1)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (app.isSystem) Text("SYS", color = Leaf.copy(alpha = 0.75f), fontSize = 7.sp)
+                            Text(if (app.packageName in pinnedPackages) "PINNED" else "+ PIN",
+                                color = if (app.packageName in pinnedPackages) Leaf else Subtle,
+                                fontSize = 7.sp,
+                                modifier = Modifier.clickable { onTogglePinned(app.packageName) }
+                                    .padding(start = 4.dp, top = 4.dp, bottom = 4.dp))
+                        }
                     }
                 }
             }
