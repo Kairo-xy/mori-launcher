@@ -110,6 +110,23 @@ private fun LiveClock(pattern: String, size: Int, color: Color, weight: FontWeig
 }
 
 @Composable
+private fun LiveDate(pattern: String) {
+    var now by remember { mutableStateOf(LocalDateTime.now()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = LocalDateTime.now()
+            delay(60_000)
+        }
+    }
+    Text(
+        text = now.format(DateTimeFormatter.ofPattern(pattern)),
+        color = Muted,
+        fontSize = 12.sp,
+        letterSpacing = 2.sp
+    )
+}
+
+@Composable
 private fun MoriBackdrop(content: @Composable () -> Unit) {
     Box(
         modifier = Modifier
@@ -146,7 +163,7 @@ private fun HomeScreen(onOpenLock: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             DynamicIsland(expanded = islandExpanded, onClick = { islandExpanded = !islandExpanded }, playing = playing, onPlay = { playing = !playing })
             Spacer(Modifier.height(42.dp))
-            Text("MONDAY  ·  NOVEMBER", color = Muted, fontSize = 12.sp, letterSpacing = 3.sp)
+            LiveDate("EEEE  ·  MMMM")
             Spacer(Modifier.height(6.dp))
             LiveClock("HH:mm", 104, Color(0xDDE9ECE7))
             Spacer(Modifier.height(28.dp))
@@ -292,7 +309,7 @@ private fun LockPreview(onBack: () -> Unit) {
                     Icon(Icons.Default.ArrowBack, "Back", tint = SoftWhite, modifier = Modifier.size(24.dp).clickable(onClick = onBack))
                 }
                 Spacer(Modifier.height(74.dp))
-                Text("MONDAY  ·  NOVEMBER 23", color = SoftWhite.copy(alpha = .85f), fontSize = 13.sp, letterSpacing = 2.sp)
+                LiveDate("EEEE  ·  MMMM d")
                 Spacer(Modifier.height(10.dp))
                 LiveClock("HH:mm", 112, Color(0xE6F0F1E9))
                 Text("A little quiet goes a long way.", color = SoftWhite.copy(alpha = .75f), fontSize = 13.sp)
