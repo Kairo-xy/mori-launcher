@@ -1,5 +1,6 @@
 package dev.mori.launcher
 
+import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -23,6 +24,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ArrowBack
@@ -76,6 +78,68 @@ data class MoriAppInfo(
 
 class MainActivity : ComponentActivity() {
     private val moriWidgetHost by lazy { MoriWidgetHost(applicationContext) }
+    private val widgetIds = mutableStateListOf<Int>()
+    private var pendingWidgetId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
+
+    private fun saveWidgetIds() {
+        getSharedPreferences("mori_widgets", MODE_PRIVATE).edit()
+            .putStringSet("ids", widgetIds.map { it.toString() }.toSet()).apply()
+    }
+
+    private fun addWidgetId(id: Int) {
+        if (id != AppWidgetManager.INVALID_APPWIDGET_ID && id !in widgetIds) {
+            widgetIds.add(id)
+            saveWidgetIds()
+        }
+        pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+    }
+
+    private fun discardPendingWidget() {
+        if (pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+            moriWidgetHost.deleteAppWidgetId(pendingWidgetId)
+            pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+        }
+    }
+
+    private fun launchWidgetPicker() {
+        pendingWidgetId = moriWidgetHost.allocateAppWidgetId()
+        val pick = Intent(AppWidgetManager.ACTION_APPWIDGET_PICK)
+            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, pendingWidgetId)
+        try { startActivityForResult(pick, REQUEST_PICK_WIDGET) }
+        catch (_: Exception) { discardPendingWidget() }
+    }
+
+    private fun removeWidget(id: Int) {
+        widgetIds.remove(id)
+        saveWidgetIds()
+        moriWidgetHost.deleteAppWidgetId(id)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_PICK_WIDGET) {
+            if (resultCode != RESULT_OK) { discardPendingWidget(); return }
+            val selectedId = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, pendingWidgetId)
+                ?: pendingWidgetId
+            pendingWidgetId = selectedId
+            val provider = AppWidgetManager.getInstance(this).getAppWidgetInfo(selectedId)
+            if (provider?.configure != null) {
+                try {
+                    moriWidgetHost.startAppWidgetConfigureActivityForResult(
+                        this, selectedId, 0, REQUEST_CONFIGURE_WIDGET, null
+                    )
+                } catch (_: Exception) { discardPendingWidget() }
+            } else addWidgetId(selectedId)
+        } else if (requestCode == REQUEST_CONFIGURE_WIDGET) {
+            if (resultCode == RESULT_OK) addWidgetId(pendingWidgetId)
+            else discardPendingWidget()
+        }
+    }
+
+    companion object {
+        private const val REQUEST_PICK_WIDGET = 7101
+        private const val REQUEST_CONFIGURE_WIDGET = 7102
+    }
 
     override fun onStart() {
         super.onStart()
@@ -95,16 +159,23 @@ class MainActivity : ComponentActivity() {
             android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
             android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
             android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        val savedIds = getSharedPreferences("mori_widgets", MODE_PRIVATE)
+            .getStringSet("ids", emptySet()).orEmpty()
+        widgetIds.addAll(savedIds.mapNotNull { it.toIntOrNull() })
         setContent {
             CompositionLocalProvider(LocalMoriWidgetHost provides moriWidgetHost) {
-                MoriRoot()
+                MoriRoot(widgetIds, ::launchWidgetPicker, ::removeWidget)
             }
         }
     }
 }
 
 @Composable
-private fun MoriRoot() {
+private fun MoriRoot(
+    widgetIds: List<Int>,
+    onAddWidget: () -> Unit,
+    onRemoveWidget: (Int) -> Unit
+) {
     var page by remember { mutableStateOf("home") }
     MaterialTheme {
         Surface(Modifier.fillMaxSize(), color = Ink) {
@@ -113,10 +184,12 @@ private fun MoriRoot() {
                     "drawer" -> MoriDrawer(onBack = { page = "home" })
                     "settings" -> MoriSettings(onBack = { page = "home" })
                     "lock" -> MoriLockPreview(onBack = { page = "home" })
+                    "widgets" -> MoriWidgetsScreen(widgetIds, { page = "home" }, onAddWidget, onRemoveWidget)
                     else -> MoriHome(
                         onDrawer = { page = "drawer" },
                         onSettings = { page = "settings" },
-                        onLock = { page = "lock" }
+                        onLock = { page = "lock" },
+                        onWidgets = { page = "widgets" }
                     )
                 }
             }
@@ -153,7 +226,9 @@ private fun ClockBlock() {
 }
 
 @Composable
-private fun MoriHome(onDrawer: () -> Unit, onSettings: () -> Unit, onLock: () -> Unit) {
+private fun MoriHome(
+    onDrawer: () -> Unit, onSettings: () -> Unit, onLock: () -> Unit, onWidgets: () -> Unit
+) {
     var islandOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val glassEnabled = remember { MoriPreferences.glassEnabled(context) }
@@ -215,7 +290,7 @@ private fun MoriHome(onDrawer: () -> Unit, onSettings: () -> Unit, onLock: () ->
                 verticalAlignment = Alignment.CenterVertically) {
                 MiniTile(Icons.Default.CalendarMonth, "Wallpaper", "Change", onClick = { MoriLauncherActions.open(context, "wallpaper") })
                 MiniTile(Icons.Default.Fingerprint, "Lock", "Preview", onClick = onLock)
-                MiniTile(Icons.Default.Apps, "Library", "All apps", onClick = onDrawer)
+                MiniTile(Icons.Default.Apps, "Widgets", "Your widgets", onClick = onWidgets)
             }
             Spacer(Modifier.height(18.dp))
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp))
@@ -383,6 +458,59 @@ private fun drawableBitmap(drawable: Drawable): Bitmap {
     return bitmap
 }
 
+@Composable
+private fun MoriWidgetsScreen(
+    widgetIds: List<Int>,
+    onBack: () -> Unit,
+    onAddWidget: () -> Unit,
+    onRemoveWidget: (Int) -> Unit
+) {
+    val context = LocalContext.current
+    val host = LocalMoriWidgetHost.current
+    val manager = remember { AppWidgetManager.getInstance(context) }
+    Column(Modifier.fillMaxSize().background(Ink).statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.ArrowBack, "Back", tint = Paper, modifier = Modifier.clickable { onBack() })
+            Text("  Widgets", color = Paper, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.weight(1f))
+            Text(widgetIds.size.toString(), color = Subtle, fontSize = 11.sp)
+        }
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color(0xFF263B2E)).clickable { onAddWidget() }.padding(horizontal = 16.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Apps, null, tint = Leaf, modifier = Modifier.size(19.dp))
+            Text("  Add a widget", color = Paper, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            Icon(Icons.Default.ChevronRight, null, tint = Subtle)
+        }
+        Spacer(Modifier.height(18.dp))
+        if (widgetIds.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.Apps, null, tint = Leaf, modifier = Modifier.size(34.dp))
+                    Spacer(Modifier.height(10.dp))
+                    Text("Your space is still empty", color = Paper, fontSize = 15.sp)
+                    Text("Add Android widgets from the system picker", color = Subtle, fontSize = 11.sp, modifier = Modifier.padding(top = 5.dp))
+                }
+            }
+        } else {
+            androidx.compose.foundation.lazy.LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+                items(widgetIds, key = { it }) { id ->
+                    val provider = remember(id) { manager.getAppWidgetInfo(id) }
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Color(0xFF202B24)).padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(provider?.loadLabel(context.packageManager) ?: "Android widget", color = Paper, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                            Text("Remove", color = Leaf, fontSize = 11.sp, modifier = Modifier.clickable { onRemoveWidget(id) }.padding(horizontal = 8.dp, vertical = 6.dp))
+                        }
+                        if (host != null && provider != null) {
+                            Spacer(Modifier.height(8.dp))
+                            key(id) { AndroidView(factory = { host.createView(context, id, provider) }, modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp)) }
+                        } else {
+                            Text("This widget is unavailable. Remove it and add it again.", color = Subtle, fontSize = 11.sp, modifier = Modifier.padding(vertical = 12.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 @Composable
 private fun MoriSettings(onBack: () -> Unit) {
     val context = LocalContext.current
