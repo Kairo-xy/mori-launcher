@@ -40,6 +40,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.CompositionLocalProvider
 import dev.mori.launcher.data.LocalMoriWidgetHost
+import dev.mori.launcher.data.MoriLauncherActions
+import dev.mori.launcher.data.MoriPreferences
 import dev.mori.launcher.data.MoriWidgetHost
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -145,7 +147,8 @@ private fun ClockBlock() {
 @Composable
 private fun MoriHome(onDrawer: () -> Unit, onSettings: () -> Unit, onLock: () -> Unit) {
     var islandOpen by remember { mutableStateOf(false) }
-    var playing by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val glassEnabled = remember { MoriPreferences.glassEnabled(context) }
     MoriBackdrop {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
             .padding(horizontal = 22.dp, vertical = 12.dp)) {
@@ -167,11 +170,11 @@ private fun MoriHome(onDrawer: () -> Unit, onSettings: () -> Unit, onLock: () ->
                     .padding(horizontal = 18.dp, vertical = 10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                         Box(Modifier.size(7.dp).background(Leaf, CircleShape))
-                        Text(if (islandOpen) "MORI  /  NOW PLAYING" else "•  MORI  •",
+                        Text(if (islandOpen) "MORI  /  YOUR SPACE" else "•  MORI  •",
                             color = Subtle, fontSize = 9.sp, letterSpacing = 1.6.sp)
                         if (islandOpen) {
-                            Icon(if (playing) Icons.Default.Headphones else Icons.Default.MusicNote, null,
-                                tint = Paper, modifier = Modifier.size(15.dp).clickable { playing = !playing })
+                            Icon(Icons.Default.MusicNote, "Open music", tint = Paper,
+                                modifier = Modifier.size(15.dp).clickable { MoriLauncherActions.open(context, "music") })
                         }
                     }
                 }
@@ -184,23 +187,24 @@ private fun MoriHome(onDrawer: () -> Unit, onSettings: () -> Unit, onLock: () ->
             ClockBlock()
             Spacer(Modifier.height(25.dp))
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
-                .background(Glass).padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                .background(if (glassEnabled) Glass else Color(0xFF202B24))
+                .clickable { MoriLauncherActions.open(context, "music") }
+                .padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(48.dp).clip(RoundedCornerShape(15.dp))
                     .background(Brush.linearGradient(listOf(Color(0xFF71866B), Color(0xFF263B2E)))),
                     contentAlignment = Alignment.Center) {
                     Icon(Icons.Default.MusicNote, null, tint = Paper, modifier = Modifier.size(25.dp))
                 }
                 Column(Modifier.weight(1f).padding(horizontal = 13.dp)) {
-                    Text("A little quiet", color = Paper, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                    Text("Your space, your pace", color = Subtle, fontSize = 11.sp)
+                    Text("Your music", color = Paper, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text("Tap to open your music app", color = Subtle, fontSize = 11.sp)
                 }
-                Text(if (playing) "Ⅱ" else "▶", color = Paper, fontSize = 18.sp,
-                    modifier = Modifier.clickable { playing = !playing }.padding(8.dp))
+                Icon(Icons.Default.ChevronRight, "Open music", tint = Paper, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.weight(1f))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                MiniTile(Icons.Default.CalendarMonth, "Today", "Your day")
+                MiniTile(Icons.Default.CalendarMonth, "Wallpaper", "Change", onClick = { MoriLauncherActions.open(context, "wallpaper") })
                 MiniTile(Icons.Default.Fingerprint, "Lock", "Preview", onClick = onLock)
                 MiniTile(Icons.Default.Apps, "Library", "All apps", onClick = onDrawer)
             }
@@ -208,10 +212,10 @@ private fun MoriHome(onDrawer: () -> Unit, onSettings: () -> Unit, onLock: () ->
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp))
                 .background(Color(0x55202D25)).padding(vertical = 13.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                DockShortcut("Phone", "☎")
-                DockShortcut("Browser", "◉")
-                DockShortcut("Music", "♫")
-                DockShortcut("Camera", "⌑")
+                DockShortcut("Phone", "☎") { MoriLauncherActions.open(context, "phone") }
+                DockShortcut("Browser", "◉") { MoriLauncherActions.open(context, "browser") }
+                DockShortcut("Music", "♫") { MoriLauncherActions.open(context, "music") }
+                DockShortcut("Camera", "⌑") { MoriLauncherActions.open(context, "camera") }
             }
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth().clickable { onDrawer() }
@@ -242,8 +246,8 @@ private fun MiniTile(icon: androidx.compose.ui.graphics.vector.ImageVector, titl
 }
 
 @Composable
-private fun DockShortcut(name: String, glyph: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun DockShortcut(name: String, glyph: String, onClick: () -> Unit) {
+    Column(Modifier.clickable { onClick() }.padding(horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.size(43.dp).clip(RoundedCornerShape(15.dp)).background(Color(0x554E6755)),
             contentAlignment = Alignment.Center) {
             Text(glyph, color = Paper, fontSize = 21.sp)
@@ -335,8 +339,9 @@ private fun drawableBitmap(drawable: Drawable): Bitmap {
 
 @Composable
 private fun MoriSettings(onBack: () -> Unit) {
-    var glass by remember { mutableStateOf(true) }
-    var labels by remember { mutableStateOf(true) }
+    val context = LocalContext.current
+    var glass by remember { mutableStateOf(MoriPreferences.glassEnabled(context)) }
+    var labels by remember { mutableStateOf(MoriPreferences.labelsEnabled(context)) }
     Column(Modifier.fillMaxSize().background(Ink).statusBarsPadding().padding(22.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.ArrowBack, "Back", tint = Paper, modifier = Modifier.clickable { onBack() })
@@ -345,8 +350,22 @@ private fun MoriSettings(onBack: () -> Unit) {
         Spacer(Modifier.height(26.dp))
         Text("PERSONALISE", color = Leaf, fontSize = 10.sp, letterSpacing = 2.sp)
         Spacer(Modifier.height(12.dp))
-        SettingRow("Frosted surfaces", "Soft translucent panels", glass) { glass = it }
-        SettingRow("App labels", "Show names below icons", labels) { labels = it }
+        SettingRow("Frosted surfaces", "Soft translucent panels", glass) {
+            glass = it
+            MoriPreferences.setGlassEnabled(context, it)
+        }
+        SettingRow("App labels", "Show names below icons", labels) {
+            labels = it
+            MoriPreferences.setLabelsEnabled(context, it)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("QUICK ACTIONS", color = Leaf, fontSize = 10.sp, letterSpacing = 2.sp)
+        Text("Change wallpaper", color = Paper, fontSize = 14.sp,
+            modifier = Modifier.fillMaxWidth().clickable { MoriLauncherActions.open(context, "wallpaper") }
+                .padding(vertical = 16.dp))
+        Text("Android settings", color = Paper, fontSize = 14.sp,
+            modifier = Modifier.fillMaxWidth().clickable { MoriLauncherActions.open(context, "settings") }
+                .padding(vertical = 16.dp))
         Spacer(Modifier.height(25.dp))
         Text("ABOUT MORI", color = Leaf, fontSize = 10.sp, letterSpacing = 2.sp)
         Spacer(Modifier.height(12.dp))
