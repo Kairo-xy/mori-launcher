@@ -28,16 +28,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Fingerprint
-import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -240,12 +237,8 @@ private fun MoriHome(
                 horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("mori", color = Paper, fontSize = 20.sp, fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.5.sp)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.Default.Wifi, null, tint = Subtle, modifier = Modifier.size(15.dp))
-                    Icon(Icons.Default.BatteryFull, null, tint = Subtle, modifier = Modifier.size(17.dp))
-                    Icon(Icons.Default.Settings, "Settings", tint = Subtle,
-                        modifier = Modifier.size(18.dp).clickable { onSettings() })
-                }
+                Icon(Icons.Default.Settings, "Settings", tint = Subtle,
+                    modifier = Modifier.size(19.dp).clickable { onSettings() })
             }
             Spacer(Modifier.height(24.dp))
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
