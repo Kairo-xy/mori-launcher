@@ -6,12 +6,16 @@ A forest-atmospheric Android home launcher with a quiet glass-and-moss visual sy
 
 The current Compose build includes:
 - Forest-gradient home surface with live date and clock
-- Expandable capsule interaction
+- Expandable Mori capsule with a real hand-off to the installed music app
 - Searchable installed-app library with real app icons and launch actions
-- Settings and lock-screen concept pages
-- Four-slot dock concept and compact home widgets
+- App drawer filters for all, downloaded, and system apps
+- Search by app label or package name; long-press opens Android App Info
+- Functional Phone, Browser, Music, and Camera dock shortcuts
+- Wallpaper picker and Android Settings entry points
+- Device-local persistent preferences for frosted surfaces and dock labels
+- Lock-screen concept preview (not a replacement for Android Keyguard)
 
-Some home tiles, dock shortcuts, media controls, and settings are still visual prototypes. They do not yet control Android system services or persist preferences.
+The workspace is still early: dock order and home layout are not yet editable or persisted, and third-party widgets are not yet pickable or rendered. The widget host lifecycle foundation is in place, but the full widget bind/configure/render pipeline remains on the roadmap.
 
 ## Design and engineering references
 
@@ -49,10 +53,12 @@ GitHub Actions builds a debug APK on pushes to `main` and uploads it as the `Mor
 - [x] Forest-first visual system
 - [x] Installed-app discovery, search and launch
 - [x] Settings and lock-preview navigation
-- [ ] Persistent home layout and preferences
+- [x] Persistent frosted-surface and dock-label preferences
+- [ ] Persistent home layout and dock ordering
 - [ ] Real media-session controls
-- [ ] Wallpaper picker
+- [x] Wallpaper picker entry point
 - [x] AppWidgetHost lifecycle/provider-generation foundation (picker, binding and rendering still to come)
+- [ ] Widget provider picker, system binding/configuration and AndroidView rendering
 - [ ] Notification listener integration (opt-in)
 - [ ] Gesture and folder interactions
 - [ ] Accessibility, performance and real-device testing
@@ -60,3 +66,6 @@ GitHub Actions builds a debug APK on pushes to `main` and uploads it as the `Mor
 ## License
 
 Mori's original code is MIT. The ARK-derived widget-host adaptation is additionally subject to Apache License 2.0; see [NOTICE-THIRD-PARTY.md](NOTICE-THIRD-PARTY.md) and [licenses/Apache-2.0-ARK-Launcher.txt](licenses/Apache-2.0-ARK-Launcher.txt).
+
+
+See [docs/OPEN_SOURCE_RESEARCH.md](docs/OPEN_SOURCE_RESEARCH.md) for the launcher comparison, feature priorities, source-reuse policy, and device-performance guardrails.
