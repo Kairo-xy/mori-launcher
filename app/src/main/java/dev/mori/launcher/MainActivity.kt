@@ -17,10 +17,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -49,6 +51,7 @@ import dev.mori.launcher.data.MoriWorkspaceStore
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -396,9 +399,10 @@ private fun PinnedAppsRow(
     Column(Modifier.fillMaxWidth()) {
         Text("YOUR SHORTCUTS", color = Subtle, fontSize = 9.sp, letterSpacing = 2.sp)
         Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             pinned.forEach { (pkg, label, drawable) ->
-                Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
+                Column(Modifier.width(68.dp).clip(RoundedCornerShape(16.dp))
                     .clickable { context.packageManager.getLaunchIntentForPackage(pkg)?.let(context::startActivity) }
                     .padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     val bitmap = remember(pkg) { drawableBitmap(drawable) }
