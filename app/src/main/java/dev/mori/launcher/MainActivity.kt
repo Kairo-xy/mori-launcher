@@ -4,6 +4,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
+import android.net.Uri
+import android.provider.Settings
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -13,6 +15,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -64,7 +67,12 @@ private val Paper = Color(0xFFF0F1E9)
 private val Subtle = Color(0xFFB9C4B8)
 private val Glass = Color(0xB91B2921)
 
-data class MoriAppInfo(val label: String, val packageName: String, val icon: Drawable)
+data class MoriAppInfo(
+    val label: String,
+    val packageName: String,
+    val icon: Drawable,
+    val isSystem: Boolean
+)
 
 class MainActivity : ComponentActivity() {
     private val moriWidgetHost by lazy { MoriWidgetHost(applicationContext) }
@@ -261,17 +269,32 @@ private fun DockShortcut(name: String, glyph: String, onClick: () -> Unit) {
 private fun MoriDrawer(onBack: () -> Unit) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
+    var filter by remember { mutableStateOf("all") }
     var apps by remember { mutableStateOf(emptyList<MoriAppInfo>()) }
     LaunchedEffect(Unit) {
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         apps = context.packageManager.queryIntentActivities(intent, 0)
             .mapNotNull { info ->
                 val label = info.loadLabel(context.packageManager)?.toString() ?: return@mapNotNull null
-                MoriAppInfo(label, info.activityInfo.packageName, info.loadIcon(context.packageManager))
+                MoriAppInfo(
+                    label,
+                    info.activityInfo.packageName,
+                    info.loadIcon(context.packageManager),
+                    (info.activityInfo.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+                )
             }.distinctBy { it.packageName }.sortedBy { it.label.lowercase() }
     }
-    val filtered = remember(apps, query) {
-        apps.filter { it.label.contains(query.trim(), ignoreCase = true) }
+    val filtered = remember(apps, query, filter) {
+        apps.filter { app ->
+            val matchesQuery = app.label.contains(query.trim(), ignoreCase = true) ||
+                app.packageName.contains(query.trim(), ignoreCase = true)
+            val matchesFilter = when (filter) {
+                "user" -> !app.isSystem
+                "system" -> app.isSystem
+                else -> true
+            }
+            matchesQuery && matchesFilter
+        }
     }
     Column(Modifier.fillMaxSize().background(Ink).statusBarsPadding().navigationBarsPadding()
         .padding(horizontal = 20.dp)) {
@@ -297,8 +320,19 @@ private fun MoriDrawer(onBack: () -> Unit) {
             if (query.isNotEmpty()) Icon(Icons.Default.Close, "Clear", tint = Subtle,
                 modifier = Modifier.clickable { query = "" }.size(17.dp))
         }
-        Spacer(Modifier.height(17.dp))
-        Text(if (query.isBlank()) "ALL APPLICATIONS" else "SEARCH RESULTS",
+        Spacer(Modifier.height(15.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("all" to "All", "user" to "Downloaded", "system" to "System").forEach { (key, label) ->
+                val selected = filter == key
+                Text(label, color = if (selected) Ink else Subtle, fontSize = 11.sp,
+                    modifier = Modifier.clip(RoundedCornerShape(18.dp))
+                        .background(if (selected) Leaf else Color(0xFF202B24))
+                        .clickable { filter = key }
+                        .padding(horizontal = 13.dp, vertical = 8.dp))
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Text(if (query.isBlank()) "APPLICATIONS" else "SEARCH RESULTS",
             color = Subtle, fontSize = 9.sp, letterSpacing = 2.sp)
         Spacer(Modifier.height(12.dp))
         if (filtered.isEmpty()) {
@@ -311,15 +345,24 @@ private fun MoriDrawer(onBack: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 items(filtered, key = { it.packageName }) { app ->
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp))
-                        .clickable {
-                            context.packageManager.getLaunchIntentForPackage(app.packageName)?.let(context::startActivity)
-                        }.padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        .combinedClickable(
+                            onClick = {
+                                context.packageManager.getLaunchIntentForPackage(app.packageName)?.let(context::startActivity)
+                            },
+                            onLongClick = {
+                                val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.parse("package:" + app.packageName))
+                                runCatching { context.startActivity(details) }
+                            }
+                        ).padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         val bitmap = remember(app.packageName) { drawableBitmap(app.icon) }
                         androidx.compose.foundation.Image(bitmap.asImageBitmap(), contentDescription = app.label,
                             modifier = Modifier.size(46.dp))
                         Spacer(Modifier.height(7.dp))
                         Text(app.label, color = Paper, fontSize = 10.sp, maxLines = 1,
                             overflow = TextOverflow.Ellipsis)
+                        if (app.isSystem) Text("SYSTEM", color = Leaf.copy(alpha = 0.75f),
+                            fontSize = 7.sp, maxLines = 1)
                     }
                 }
             }
